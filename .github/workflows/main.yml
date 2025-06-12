@@ -40,5 +40,5 @@ jobs:
         with:
           context: .
           push: true
-          tags:  ${{ env.DOCKERHUB_ORG_NAME }}/neon_test_programs:${{ steps.define-tag.outputs.tag }}
-          labels: ${{ env.DOCKERHUB_ORG_NAME }}/neon_test_programs:${{ steps.define-tag.outputs.tag }}
+          tags:  ${{ env.DOCKERHUB_ORG_NAME }}/alt_updater:${{ steps.define-tag.outputs.tag }}
+          labels: ${{ env.DOCKERHUB_ORG_NAME }}/alt_updater:${{ steps.define-tag.outputs.tag }}
