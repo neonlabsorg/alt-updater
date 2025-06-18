@@ -14,8 +14,9 @@ Solana program implements single instruction with the following expectations:
 - 0, address lookup table account
 - 1, authority account
 - 2, payer account
-- 3, system program account
-- 4 and onwards, account references that should be added to the ALT table
+- 3, system program, `11111111111111111111111111111111`
+- 4, address lookup table program, `AddressLookupTab1e1111111111111111111111111`
+- 5 and onwards, account references that should be added to the ALT table
 
 #### Instruction data
 - 8 bytes, little endian, - recent slot
