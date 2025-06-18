@@ -21,9 +21,13 @@ pub fn process_instruction(
 ) -> ProgramResult {
     msg!("ALT Updater Program ID: {:?}", program_id);
 
-    // take ALT (0), authority (1), payer (2), system program (3) accounts
-    // from AccountInfo array
-    if accounts.len() < 4 {
+    // expected accounts:
+    //     0. ALT account
+    //     1. authority
+    //     2. payer
+    //     3. system program
+    //     4. ALT program
+    if accounts.len() < 5 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let acc_iter = &mut accounts.iter();
@@ -31,8 +35,9 @@ pub fn process_instruction(
     let acc_authority = next_account_info(acc_iter)?;
     let acc_payer = next_account_info(acc_iter)?;
     let acc_system_program = next_account_info(acc_iter)?;
+    let acc_alt_program = next_account_info(acc_iter)?;
 
-    // consider all onwards as an extends for ALT table
+    // consider all onward accounts as an extends for ALT table
     let acc_extends = acc_iter.as_slice();
 
     // take Recent Slot from instruction data
@@ -55,6 +60,7 @@ pub fn process_instruction(
                 acc_authority.clone(),
                 acc_payer.clone(),
                 acc_system_program.clone(),
+                acc_alt_program.clone(),
             ])?;
     }
 
@@ -74,6 +80,7 @@ pub fn process_instruction(
                 acc_authority.clone(),
                 acc_payer.clone(),
                 acc_system_program.clone(),
+                acc_alt_program.clone(),
             ],
         )?;
     }
