@@ -10,6 +10,7 @@ ENV PATH=/root/.local/share/solana/install/active_release/bin:$PATH
 COPY . /opt/alt-updater/
 
 RUN cd /opt/alt-updater/program/ && cargo build-sbf --sbf-out-dir=/opt/deploy/alt_updater/
+COPY /opt/alt-updater/program/alt_updater-keypair.json /opt/deploy/alt_updater/alt_updater-keypair.json
 
 FROM ubuntu:24.04 AS deploy
 
