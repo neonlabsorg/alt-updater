@@ -16,3 +16,4 @@ FROM ubuntu:24.04 AS deploy
 COPY --from=builder /root/.local/share/solana/install/active_release/bin/solana /opt/solana/bin/
 COPY --from=builder /root/.local/share/solana/install/active_release/bin/solana-keygen /opt/solana/bin/
 COPY --from=builder /opt/deploy /opt/deploy
+COPY --from=builder /opt/alt-updater/program/alt_updater-keypair.json /opt/alt_updater-keypair.json
