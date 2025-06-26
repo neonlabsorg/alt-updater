@@ -79,12 +79,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &[&payer],
         recent_blockhash,
     );
-
-    // send the transaction
     let signature = client.send_and_confirm_transaction(&transaction)?;
     println!("Transaction successful. Signature: {}", signature);
 
-    // check compute unit consumed
+    // check compute units consumed
     let tx_meta = client.get_transaction(&signature, UiTransactionEncoding::Json)?;
     if let Some(meta) = tx_meta.transaction.meta {
         let compute_units_consumed: Option<u64> = meta.compute_units_consumed.into();
