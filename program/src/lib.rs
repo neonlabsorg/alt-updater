@@ -7,18 +7,15 @@ use solana_program::{
     program::invoke,
     program_error::ProgramError,
     pubkey::Pubkey,
-    msg,
 };
 
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    msg!("ALT Updater Program ID: {:?}", program_id);
-
     // expected accounts:
     //     0. ALT account
     //     1. payer
