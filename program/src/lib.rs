@@ -1,12 +1,11 @@
-use solana_program::{
-    address_lookup_table::instruction::{create_lookup_table, extend_lookup_table},
-    address_lookup_table::state::AddressLookupTable,
-    account_info::{AccountInfo, next_account_info},
+use pinocchio::{
+    account_info::AccountInfo,
+    instruction::{AccountMeta, Instruction},
+    pubkey::{PUBKEY_BYTES, Pubkey, find_program_address},
+    cpi::invoke,
     entrypoint,
-    entrypoint::ProgramResult,
-    program::invoke,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    ProgramResult,
 };
 
 entrypoint!(process_instruction);
@@ -25,57 +24,88 @@ pub fn process_instruction(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let acc_iter = &mut accounts.iter();
-    let acc_lookup_table = next_account_info(acc_iter)?;
-    let acc_payer = next_account_info(acc_iter)?;
-    let acc_system_program = next_account_info(acc_iter)?;
-    let acc_alt_program = next_account_info(acc_iter)?;
-
-    // consider all onward accounts as an extends for ALT table
+    let acc_lookup_table = acc_iter.next().unwrap();
+    let acc_payer = acc_iter.next().unwrap();
+    let acc_system_program = acc_iter.next().unwrap();
+    let acc_alt_program = acc_iter.next().unwrap();
     let acc_extends = acc_iter.as_slice();
 
-    // take Recent Slot from instruction data
-    if instruction_data.len() < 8 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let recent_slot = u64::from_le_bytes(instruction_data[..8].try_into().unwrap());
+    // instruction accounts, the same for both CreateLookupTable and ExtendLookupTable
+    let account_metas: [AccountMeta; 4] = [
+        AccountMeta::writable(acc_lookup_table.key()),
+        AccountMeta::readonly_signer(acc_payer.key()),
+        AccountMeta::writable_signer(acc_payer.key()),
+        AccountMeta::readonly(acc_system_program.key()),
+    ];
 
-    // create new ALT on acc_lookup_table if it doesn't contain a correct ALT already
-    if AddressLookupTable::deserialize(&mut acc_lookup_table.data.borrow_mut()).is_err() {
-        let (ix_create, _) = create_lookup_table(
-            acc_payer.key.clone(),
-            acc_payer.key.clone(),
-            recent_slot, // recent slot for the lookup table
+    // create new ALT on acc_lookup_table account if it is empty
+    if acc_lookup_table.data_is_empty() {
+        let recent_slot = u64::from_le_bytes(instruction_data[..8].try_into().unwrap());
+        let (_lookup_table, bump_seed)  = find_program_address(
+            &[acc_payer.key().as_ref(), &recent_slot.to_le_bytes()],
+            acc_alt_program.key()
         );
+
+        // CreateLookupTable instruction data
+        //     [0..4 ]: Instruction discriminator, u32 (0 for CreateLookupTable)
+        //     [4..12]: Recent Slot, u64
+        //     [12   ]: bump seed, u8
+        let mut instruction_data = [0u8; 13];
+        // instruction_data[0..4] are zeroes
+        instruction_data[4..12].copy_from_slice(&recent_slot.to_le_bytes()[..]);
+        instruction_data[12] = bump_seed;
+
+        let instruction = Instruction {
+            program_id: &acc_alt_program.key(),
+            accounts: &account_metas,
+            data: &instruction_data,
+        };
         invoke(
-            &ix_create,
+            &instruction,
             &[
-                acc_lookup_table.clone(),
-                acc_payer.clone(),
-                acc_payer.clone(),
-                acc_system_program.clone(),
-                acc_alt_program.clone(),
-            ])?;
+                acc_lookup_table,
+                acc_payer,
+                acc_payer,
+                acc_system_program
+            ]
+        )?
     }
 
     // extend ALT
     if acc_extends.len() > 0 {
-        let pk_extends: Vec<_> = acc_extends.iter().map(|acc| *acc.key).collect();
-        let ix_extend = extend_lookup_table(
-            acc_lookup_table.key.clone(),
-            acc_payer.key.clone(),
-            Some(acc_payer.key.clone()),
-            pk_extends
-        );
+        const MAX_EXTEND_ACCOUNTS: usize = 27;
+
+        if acc_extends.len() > MAX_EXTEND_ACCOUNTS {
+            return Err(ProgramError::MaxAccountsDataAllocationsExceeded);
+        }
+
+        // ExtendLookupTable instruction data
+        //     [0..4 ]: Instruction discriminator, u32 (2 for ExtendLookupTable)
+        //     [4..12]: pubkeys count, u64
+        //     [12 + 32*i..12 + 32*(i+1)]: n-th Pubkey for extend
+        let mut instruction_data = [0u8; 4 + 8 + MAX_EXTEND_ACCOUNTS * PUBKEY_BYTES];
+        instruction_data[0] = 2;
+        instruction_data[4..12].copy_from_slice(&acc_extends.len().to_le_bytes()[..]);
+
+        for (idx, account) in acc_extends.iter().enumerate() {
+            let offset = 4 + 8 + idx * PUBKEY_BYTES;
+            instruction_data[offset..offset + PUBKEY_BYTES]
+                .copy_from_slice(account.key().as_ref());
+        }
+        let instruction = Instruction {
+            program_id: &acc_alt_program.key(),
+            accounts: &account_metas,
+            data: &instruction_data[..4 + 8 + acc_extends.len() * PUBKEY_BYTES],
+        };
         invoke(
-            &ix_extend,
+            &instruction,
             &[
-                acc_lookup_table.clone(),
-                acc_payer.clone(),
-                acc_payer.clone(),
-                acc_system_program.clone(),
-                acc_alt_program.clone(),
-            ],
-        )?;
+                acc_lookup_table,
+                acc_payer,
+                acc_payer,
+                acc_system_program
+            ]
+        )?
     }
 
     Ok(())
