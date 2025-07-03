@@ -40,7 +40,13 @@ pub fn process_instruction(
 
     // create new ALT on acc_lookup_table account if it is empty
     if acc_lookup_table.data_is_empty() {
+        // take Recent Slot from instruction data
+        if instruction_data.len() < 8 {
+            return Err(ProgramError::InvalidInstructionData);
+        }
         let recent_slot = u64::from_le_bytes(instruction_data[..8].try_into().unwrap());
+
+        // retrieve Bump Seed
         let (_lookup_table, bump_seed)  = find_program_address(
             &[acc_payer.key().as_ref(), &recent_slot.to_le_bytes()],
             acc_alt_program.key()
